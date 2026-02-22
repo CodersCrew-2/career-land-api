@@ -41,8 +41,8 @@ export class AuthService {
 		}
 
 		const google_user = await google.me(token.access_token);
-		if (!google_user) {
-			throw new Error("authentication failed");
+		if (!google_user || !google_user.email) {
+			throw new Error("Failed to retrieve user email from Google");
 		}
 
 		let user = await User.findOne({ email: google_user.email });

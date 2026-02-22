@@ -99,6 +99,10 @@ class GoogleAuth {
 		const name = person.names?.[0]?.displayName;
 		const profilePic = person.photos?.[0]?.url;
 
+		if (!email) {
+			throw new Error("Email not found in Google user profile");
+		}
+
 		return {
 			email,
 			name,
