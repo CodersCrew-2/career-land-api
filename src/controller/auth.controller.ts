@@ -1,5 +1,6 @@
 import { AuthService } from "@/services/auth.service";
 import type { Context } from "hono";
+import { setCookie } from "hono/cookie";
 
 export class AuthController {
 
@@ -43,6 +44,13 @@ export class AuthController {
 			}
 
 			const result = await AuthService.getAccessToken({ ctx, code });
+
+			setCookie(ctx, "token", result.access_token, {
+				httpOnly: true,
+				secure: true,
+				sameSite: "Strict",
+				maxAge: 60 * 60 * 24 * 7, // 7 days
+			});
 
 			return ctx.json(
 				{

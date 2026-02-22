@@ -101,7 +101,6 @@ GOOGLE_CLIENT_ID=<your-google-client-id>
 GOOGLE_CLIENT_SECRET=<your-google-client-secret>
 GOOGLE_REDIRECT_URI=http://localhost:8787/api/auth/google/callback
 JWT_SECRET=<a-strong-random-secret>
-FRONTEND_URL=http://localhost:3000
 CAREER_LAND_API_URL=<google-adk-agent-url>
 ROADMAP_GENERATOR_API_URL=<roadmap-service-url>
 ```
