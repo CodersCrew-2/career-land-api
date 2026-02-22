@@ -38,12 +38,22 @@ export class OnboardingController {
 				);
 			}
 
-			// Optional userId - can work without authentication for testing
-			const userId = ctx.get("userId") || "test-user";
+			// Get authenticated user from context
+			const user = ctx.get("user");
+
+			if (!user || !user.id) {
+				return ctx.json(
+					{
+						success: false,
+						error: "User authentication required",
+					},
+					401,
+				);
+			}
 
 			const result = await OnboardingService.onboarding({
 				ctx,
-				userId,
+				userId: user.id,
 				sessionId,
 				query: queryString,
 			});
