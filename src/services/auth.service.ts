@@ -1,7 +1,8 @@
-import { User } from "@/lib/database/models/user.models";
+import { getUserCollection } from "@/lib/database/models/user.models";
 import googleAuth from "@/lib/google";
 import { signToken } from "@/lib/utils/jwt";
 import type { Context } from "hono";
+import type { Db } from "mongodb";
 
 export class AuthService {
 	public static readonly getAuthorizeUrI = ({
@@ -45,20 +46,34 @@ export class AuthService {
 			throw new Error("Failed to retrieve user email from Google");
 		}
 
-		let user = await User.findOne({ email: google_user.email });
+		const db = ctx.get("db") as Db;
+		const usersCol = getUserCollection(db);
+
+		let user = await usersCol.findOne({ email: google_user.email });
 		if (!user) {
-			user = new User({
+			const now = new Date();
+			const result = await usersCol.insertOne({
 				firstName: google_user.name || "Unknown",
 				email: google_user.email,
 				access_token: token.access_token,
 				refresh_token: token.refresh_token,
+				createdAt: now,
+				updatedAt: now,
 			});
-			await user.save();
+			user = {
+				_id: result.insertedId,
+				firstName: google_user.name || "Unknown",
+				email: google_user.email,
+				access_token: token.access_token,
+				refresh_token: token.refresh_token,
+				createdAt: now,
+				updatedAt: now,
+			};
 		}
 
 		const jwt_token = await signToken({
 			secret: ctx.env.JWT_SECRET,
-			user: { id: user._id.toString() },
+			user: { id: user._id!.toString() },
 		});
 		if (!jwt_token) {
 			throw new Error("authentication failed");
@@ -66,7 +81,7 @@ export class AuthService {
 
 		return {
 			user: {
-				id: user._id.toString(),
+				id: user._id!.toString(),
 				firstName: user.firstName,
 				lastName: user.lastName,
 				email: user.email,

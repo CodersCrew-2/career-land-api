@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
-import { DB } from "./lib/database";
+import { connectDB } from "./lib/database";
 import apiRoutes from "./routes";
 import type { Bindings } from "./types/bindings";
 
@@ -10,8 +10,11 @@ const app = new Hono<{ Bindings: Bindings }>();
 
 app.use(
 	cors({
-		origin: "*",
+		origin: ["https://careerland.rookie.house", "http://localhost:3000"],
 		credentials: true,
+		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+		allowHeaders: ["Content-Type", "Authorization"],
+		exposeHeaders: ["Set-Cookie"],
 	}),
 );
 app.use(logger());
@@ -30,8 +33,8 @@ app.use("*", async (c, next) => {
 	}
 
 	try {
-		const db = new DB({ databaseUrI: c.env.DATABASE_URL });
-		await db.client();
+		const db = await connectDB(c.env.DATABASE_URL);
+		c.set("db", db);
 		await next();
 	} catch (error) {
 		return c.json(

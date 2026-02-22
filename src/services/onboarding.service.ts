@@ -7,7 +7,6 @@ import type {
 } from "@/types/career_land";
 import type { IOnboardingServiceParams } from "@/types/onboarding";
 import type { IRoadmapGenerationResponse } from "@/types/roadmap";
-import { randomUUID } from "crypto";
 
 export class OnboardingService {
 	public static readonly onboarding = async (
@@ -22,7 +21,7 @@ export class OnboardingService {
 		});
 		if (!input_data.sessionId) {
 			const session = await adk.createSession({
-				sessionId: randomUUID(),
+				sessionId: crypto.randomUUID(),
 				userId: input_data.userId,
 			});
 			if (!session) {

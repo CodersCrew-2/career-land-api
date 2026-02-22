@@ -1,31 +1,16 @@
-import mongoose from "mongoose";
+import { type Db, type Collection, ObjectId } from "mongodb";
 
-const userSchema = new mongoose.Schema(
-  {
-    firstName: {
-      type: String,
-      required: true,
-    },
-    lastName: {
-      type: String,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    access_token: {
-      type: String,
-      required: true,
-    },
-    refresh_token: {
-      type: String,
-    }
-  },
-  { timestamps: true },
-);
+export interface IUser {
+	_id?: ObjectId;
+	firstName: string;
+	lastName?: string;
+	email: string;
+	access_token: string;
+	refresh_token?: string;
+	createdAt?: Date;
+	updatedAt?: Date;
+}
 
-// Model
-const User = mongoose.model("user", userSchema);
-
-export { User };
+export function getUserCollection(db: Db): Collection<IUser> {
+	return db.collection<IUser>("users");
+}

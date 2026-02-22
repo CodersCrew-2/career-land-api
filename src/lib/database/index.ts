@@ -1,13 +1,18 @@
-import mongoose from "mongoose";
+import { MongoClient, type Db } from "mongodb";
 
-export class DB {
-	private dbClient: mongoose.Mongoose | null = null;
-	constructor(private config: { databaseUrI: string }) {}
+let cachedClient: MongoClient | null = null;
+let cachedDb: Db | null = null;
 
-	async client() {
-		if (!this.dbClient) {
-			this.dbClient = await mongoose.connect(this.config.databaseUrI);
-		}
-    return this.dbClient
+export async function connectDB(databaseUrl: string): Promise<Db> {
+	if (cachedDb) {
+		return cachedDb;
 	}
+
+	if (!cachedClient) {
+		cachedClient = new MongoClient(databaseUrl);
+		await cachedClient.connect();
+	}
+
+	cachedDb = cachedClient.db();
+	return cachedDb;
 }

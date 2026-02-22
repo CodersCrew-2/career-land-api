@@ -1,5 +1,7 @@
-import axios from "axios";
-import type { IRoadmapGenerationParams, IRoadmapGenerationResponse } from "@/types/roadmap";
+import type {
+	IRoadmapGenerationParams,
+	IRoadmapGenerationResponse,
+} from "@/types/roadmap";
 
 export class RoadmapGeneratorAgent {
 	private static instance: RoadmapGeneratorAgent;
@@ -13,11 +15,26 @@ export class RoadmapGeneratorAgent {
 		return this.instance;
 	}
 
-	public async generateRoadmap(input_data: IRoadmapGenerationParams) {
-		const { data } = await axios.post<IRoadmapGenerationResponse>(
-			`${this.config.api}/v1/roadmaps`,
-			input_data,
-		);
-		return data;
+	public async generateRoadmap(
+		input_data: IRoadmapGenerationParams,
+	): Promise<IRoadmapGenerationResponse> {
+		const response = await fetch(`${this.config.api}/v1/roadmaps`, {
+			method: "POST",
+			signal: AbortSignal.timeout(25000),
+			headers: {
+				"Content-Type": "application/json",
+				Accept: "application/json",
+			},
+			body: JSON.stringify(input_data),
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			throw new Error(
+				`Roadmap generation failed (${response.status}): ${errorText}`,
+			);
+		}
+
+		return response.json() as Promise<IRoadmapGenerationResponse>;
 	}
 }

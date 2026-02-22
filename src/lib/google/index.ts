@@ -1,13 +1,5 @@
-import { google, Auth } from "googleapis";
-import crypto from "node:crypto";
-
 class GoogleAuth {
 	private static instance: GoogleAuth;
-	private _googleClient: Auth.OAuth2Client;
-	private _scopes = [
-		"https://www.googleapis.com/auth/userinfo.email",
-		"https://www.googleapis.com/auth/userinfo.profile",
-	];
 
 	private constructor(
 		private config: {
@@ -15,20 +7,10 @@ class GoogleAuth {
 			googleClientSecret: string;
 			googleRedirectUri: string;
 		},
-	) {
-		this._googleClient = new google.auth.OAuth2(
-			this.config.googleClientId,
-			this.config.googleClientSecret,
-			this.config.googleRedirectUri,
-		);
-	}
+	) {}
 
 	/**
 	 * Get the singleton instance of GoogleAuth
-	 * @param googleClientId - Google Client ID
-	 * @param googleClientSecret - Google Client Secret
-	 * @param googleRedirectUri - Google Redirect URI
-	 * @returns {GoogleAuth} - The singleton instance of GoogleAuth
 	 */
 	public static getInstance({
 		googleClientId,
@@ -51,49 +33,83 @@ class GoogleAuth {
 
 	/**
 	 * Generate Google OAuth2 authentication URL
-	 * @param sessionId - Optional session ID to include in the state parameter
-	 * @returns {string} - The generated authentication URL
 	 */
 	public getAuthUrl(sessionId?: string) {
-		const authUrl = this._googleClient.generateAuthUrl({
+		const state = sessionId
+			? `session:${sessionId}`
+			: crypto.randomUUID();
+
+		const params = new URLSearchParams({
+			client_id: this.config.googleClientId,
+			redirect_uri: this.config.googleRedirectUri,
+			response_type: "code",
+			scope: [
+				"https://www.googleapis.com/auth/userinfo.email",
+				"https://www.googleapis.com/auth/userinfo.profile",
+			].join(" "),
 			access_type: "offline",
-			scope: this._scopes,
-			include_granted_scopes: true,
-			state: sessionId
-				? `session:${sessionId}`
-				: crypto.randomBytes(32).toString("hex"),
+			include_granted_scopes: "true",
+			state,
 		});
-		return authUrl;
+
+		return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 	}
 
 	/**
 	 * Exchange authorization code for access tokens
-	 * @param code - The authorization code received from Google
-	 * @returns {Promise<OAuth2Client['credentials']>} - The access tokens
 	 */
 	public async getTokens(code: string) {
-		const { tokens } = await this._googleClient.getToken(code);
+		const response = await fetch("https://oauth2.googleapis.com/token", {
+			method: "POST",
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			body: new URLSearchParams({
+				code,
+				client_id: this.config.googleClientId,
+				client_secret: this.config.googleClientSecret,
+				redirect_uri: this.config.googleRedirectUri,
+				grant_type: "authorization_code",
+			}),
+		});
+
+		if (!response.ok) {
+			const errorData = await response.text();
+			throw new Error(`Token exchange failed: ${errorData}`);
+		}
+
+		const tokens = (await response.json()) as {
+			access_token?: string;
+			refresh_token?: string;
+			expires_in?: number;
+			token_type?: string;
+			scope?: string;
+			id_token?: string;
+		};
 		return tokens;
 	}
 
 	/**
 	 * Retrieve user profile information using the access token
-	 * @param accessToken - The access token obtained from Google
-	 * @returns {Promise<{ email: string | undefined; name: string | undefined; profilePic: string | undefined }>} - The user's profile information
 	 */
 	public async me(accessToken: string) {
-		this._googleClient.setCredentials({ access_token: accessToken });
+		const response = await fetch(
+			"https://people.googleapis.com/v1/people/me?personFields=emailAddresses,names,photos",
+			{
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+				},
+			},
+		);
 
-		const people = google.people({ version: "v1", auth: this._googleClient });
-		const response = await people.people.get({
-			resourceName: "people/me",
-			personFields: "emailAddresses,names,photos",
-		});
-
-		const person = response.data;
-		if (!person) {
-			throw new Error("No user data returned from Google");
+		if (!response.ok) {
+			const errorData = await response.text();
+			throw new Error(`Failed to fetch user profile: ${errorData}`);
 		}
+
+		const person = (await response.json()) as {
+			emailAddresses?: { value?: string }[];
+			names?: { displayName?: string }[];
+			photos?: { url?: string }[];
+		};
 
 		const email = person.emailAddresses?.[0]?.value;
 		const name = person.names?.[0]?.displayName;

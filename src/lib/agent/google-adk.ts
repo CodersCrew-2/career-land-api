@@ -9,11 +9,10 @@ import type {
 	IResponseListSessions,
 	IRunAgentParams,
 } from "@/types/career_land";
-import axios, { type AxiosInstance } from "axios";
 
 export class CareerLandAgent {
 	private static instance: CareerLandAgent;
-	private _axios: AxiosInstance;
+	private _baseURL: string;
 	private _app_name = "career_land";
 
 	private constructor(
@@ -21,14 +20,7 @@ export class CareerLandAgent {
 			api: string;
 		},
 	) {
-		this._axios = axios.create({
-			baseURL: this.config.api,
-			headers: {
-				"Content-Type": "application/json",
-				Accept: "application/json",
-			},
-			withCredentials: true,
-		});
+		this._baseURL = this.config.api;
 	}
 
 	public static getInstance(config: { api: string }): CareerLandAgent {
@@ -38,39 +30,61 @@ export class CareerLandAgent {
 		return this.instance;
 	}
 
+	private async request<T>(
+		path: string,
+		options: RequestInit = {},
+	): Promise<T> {
+		const response = await fetch(`${this._baseURL}${path}`, {
+			...options,
+			signal: AbortSignal.timeout(25000),
+			headers: {
+				"Content-Type": "application/json",
+				Accept: "application/json",
+				...options.headers,
+			},
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			throw new Error(
+				`Request to ${path} failed (${response.status}): ${errorText}`,
+			);
+		}
+
+		return response.json() as Promise<T>;
+	}
+
 	public async getAgents(): Promise<IResponseListApps> {
-		const { data } = await this._axios.get("/list-apps");
-		return data;
+		return this.request<IResponseListApps>("/list-apps");
 	}
 
 	public async getSession(
 		params: IGetSessionParams,
 	): Promise<IResponseCreateSession> {
 		const { userId, sessionId } = params;
-		const { data } = await this._axios.get(
+		return this.request<IResponseCreateSession>(
 			`/apps/${this._app_name}/users/${userId.toString()}/sessions/${sessionId}`,
 		);
-		return data;
 	}
 
 	public async createSession(
 		params: ICreateSessionParams,
 	): Promise<IResponseCreateSession> {
 		const { userId, sessionId } = params;
-		const { data } = await this._axios.post(
+		return this.request<IResponseCreateSession>(
 			`/apps/${this._app_name}/users/${userId.toString()}/sessions/${sessionId}`,
 			{
-				userId,
+				method: "POST",
+				body: JSON.stringify({ userId }),
 			},
 		);
-		return data;
 	}
 
 	public async listSessions(
 		params: IListSessionsParams,
 	): Promise<IResponseListSessions> {
 		const { userId } = params;
-		const { data } = await this._axios.get(
+		const data = await this.request<IResponseCreateSession[]>(
 			`/apps/${this._app_name}/users/${userId.toString()}/sessions`,
 		);
 		return {
@@ -79,25 +93,25 @@ export class CareerLandAgent {
 	}
 
 	public async runAgent(params: IRunAgentParams): Promise<IGeminiResponse[]> {
-		const { userId, sessionId, message, role, streaming, stateDelta } = params;
+		const { userId, sessionId, message, role, streaming, stateDelta } =
+			params;
 		const parts = [{ text: message }];
 
 		try {
-			const { data } = await this._axios.post("/run", {
-				appName: this._app_name,
-				userId: userId.toString(),
-				sessionId: sessionId,
-				newMessage: {
-					parts: parts,
-					role: role || "user",
-				},
-				streaming: streaming || false,
-				stateDelta: stateDelta || {},
+			return await this.request<IGeminiResponse[]>("/run", {
+				method: "POST",
+				body: JSON.stringify({
+					appName: this._app_name,
+					userId: userId.toString(),
+					sessionId: sessionId,
+					newMessage: {
+						parts: parts,
+						role: role || "user",
+					},
+					streaming: streaming || false,
+					stateDelta: stateDelta || {},
+				}),
 			});
-			if (!data) {
-				throw new Error("No response data from run endpoint");
-			}
-			return data;
 		} catch (error) {
 			console.error("Error in CareerLandAgent.runAgent:", error);
 			throw new Error(
@@ -108,9 +122,9 @@ export class CareerLandAgent {
 
 	public async deleteSession(params: IDeleteSessionParams): Promise<null> {
 		const { userId, sessionId } = params;
-		const { data } = await this._axios.delete(
+		return this.request<null>(
 			`/apps/${this._app_name}/users/${userId.toString()}/sessions/${sessionId.toString()}`,
+			{ method: "DELETE" },
 		);
-		return data;
 	}
 }
