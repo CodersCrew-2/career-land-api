@@ -206,9 +206,39 @@ export interface IQuestionResponse {
 	questions: IQuestion[];
 }
 
+export interface ICareerOverview {
+	annual_income: string;
+	job_growth: string;
+	time_to_proficiency: string;
+}
+
+export interface ICareerOption {
+	name: string;
+	description: string;
+	overview: ICareerOverview;
+	requirements: string[];
+	youtube: string;
+}
+
+export interface IResultData {
+	domain: string;
+	goal: string;
+	current_level: string;
+	skills: string[];
+	experience_years: number;
+	timeline_months: number;
+	daily_hours: number;
+	age: number;
+	location: string;
+	constraints: string[];
+	resources_access: string[];
+	preferences: IPreferences;
+	options: ICareerOption[];
+}
+
 export interface IAgentResponse {
 	type: "question" | "result";
-	data: IQuestionResponse | IUserProfile;
+	data: IQuestionResponse | IResultData;
 }
 
 // Gemini API Response Types

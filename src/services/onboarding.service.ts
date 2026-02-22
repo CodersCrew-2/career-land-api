@@ -2,6 +2,7 @@ import { CareerLandAgent, RoadmapGeneratorAgent } from "@/lib/agent";
 import type {
 	IAgentResponse,
 	IGeminiResponse,
+	IResultData,
 	IUserProfile,
 } from "@/types/career_land";
 import type { IOnboardingServiceParams } from "@/types/onboarding";
@@ -13,6 +14,7 @@ export class OnboardingService {
 		input_data: IOnboardingServiceParams,
 	): Promise<{
 		response: IAgentResponse | IRoadmapGenerationResponse;
+		careers?: IResultData["options"];
 		sessionId: string;
 	}> => {
 		const adk = CareerLandAgent.getInstance({
@@ -55,9 +57,9 @@ export class OnboardingService {
 			};
 		} else if (parsedResponse.type === "result") {
 			// Normalize the user profile domain before sending to roadmap generator
-			const normalizedProfile = OnboardingService.normalizeUserProfile(
-				parsedResponse.data as IUserProfile,
-			);
+			const resultData = parsedResponse.data as IResultData;
+			const normalizedProfile =
+				OnboardingService.normalizeUserProfile(resultData);
 
 			console.log("Normalized profile domain:", normalizedProfile.domain);
 
@@ -69,6 +71,7 @@ export class OnboardingService {
 			});
 			return {
 				response: generatedRoadmap,
+				careers: resultData.options,
 				sessionId: input_data.sessionId,
 			};
 		} else {
